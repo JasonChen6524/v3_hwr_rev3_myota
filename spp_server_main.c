@@ -47,11 +47,12 @@
 #define UART_POLL_TIMEOUT  5000
 
 /* soft timer handles */
-#define TIC_TIMER_HANDLE 1
-#define OS_TIMER_HANDLE 2
+#define TIC_TIMER_HANDLE   1
+#define OS_TIMER_HANDLE    2
+#define OS_1S_TIMER_HANDLE 3
 
 
-#define TIC_TIMER_CONST 32768
+#define TIC_TIMER_CONST  32768
 #define TIC_TIMER_PERSEC 10
 
 enum
@@ -84,6 +85,101 @@ static const uint8_t eddystone_data[EDDYSTONE_DATA_LEN] = {
 /***************************************************************************************************
  Local Variables
  **************************************************************************************************/
+#include "btl_interface.h"
+#include "btl_interface_storage.h"
+
+#define uart_flush()
+
+static void bootMessage(struct gecko_msg_system_boot_evt_t *bootevt);
+
+static BootloaderInformation_t bldInfo;
+static BootloaderStorageSlot_t slotInfo;
+
+/* OTA variables */
+static uint32 ota_image_position = 0;
+static uint8 ota_in_progress = 0;
+static uint8 ota_image_finished = 0;
+static uint16 ota_time_elapsed = 0;
+
+static int32_t get_slot_info()
+{
+	int32_t err;
+
+	bootloader_getInfo(&bldInfo);
+	printLog("Gecko bootloader version: %u.%u\r\n", (bldInfo.version & 0xFF000000) >> 24, (bldInfo.version & 0x00FF0000) >> 16);
+
+	err = bootloader_getStorageSlotInfo(0, &slotInfo);
+
+	if(err == BOOTLOADER_OK)
+	{
+		printLog("Slot 0 starts @ 0x%8.8x, size %u bytes\r\n", slotInfo.address, slotInfo.length);
+	}
+	else
+	{
+		printLog("Unable to get storage slot info, error %x\r\n", err);
+	}
+
+	return(err);
+}
+
+static void erase_slot_if_needed()
+{
+	uint32_t offset = 0;
+	uint8_t buffer[256];
+	int i;
+	int dirty = 0;
+	int32_t err = BOOTLOADER_OK;
+	int num_blocks = 0;
+
+	/* check the download area content by reading it in 256-byte blocks */
+
+	num_blocks = slotInfo.length / 256;
+
+	while((dirty == 0) && (offset < 256*num_blocks) && (err == BOOTLOADER_OK))
+	{
+		err = bootloader_readStorage(0, offset, buffer, 256);
+		if(err == BOOTLOADER_OK)
+		{
+			i=0;
+			while(i<256)
+			{
+				if(buffer[i++] != 0xFF)
+				{
+					dirty = 1;
+					break;
+				}
+			}
+			offset += 256;
+		}
+		printf(".");
+	}
+
+	if(err != BOOTLOADER_OK)
+	{
+		printLog("\r\nerror reading flash! %x\r\n", err);
+	}
+	else if(dirty)
+	{
+		printLog("\r\ndownload area is not empty, erasing...\r\n");
+		bootloader_eraseStorageSlot(0);
+		printLog("done\r\n");
+	}
+	else
+	{
+		printLog("\r\ndownload area is empty\r\n");
+	}
+
+	return;
+}
+
+static void print_progress()
+{
+	// estimate transfer speed in kbps
+	int kbps = ota_image_position*8/(1024*ota_time_elapsed);
+
+	printLog("pos: %u, time: %u, kbps: %u\r\n", ota_image_position, ota_time_elapsed, kbps);
+}
+
 static uint8 _conn_handle = 0xFF;
 static int _main_state;
 
@@ -167,7 +263,7 @@ U8 sectic = TIC_TIMER_PERSEC;
     struct gecko_cmd_packet* evt;
 
    //bpt_main();   // For Bio-Sensor estimation -
-    
+
     if(_main_state == STATE_SPP_MODE) {
     	/* If SPP data mode is active, use non-blocking gecko_peek_event() */
     	evt = gecko_peek_event();
@@ -189,7 +285,7 @@ U8 sectic = TIC_TIMER_PERSEC;
     }
 
     /* Handle events */
-   switch (BGLIB_MSG_ID(evt->header)) 
+   switch (BGLIB_MSG_ID(evt->header))
    {
 
       /* This boot event is generated when the system boots up after reset.
@@ -199,8 +295,7 @@ U8 sectic = TIC_TIMER_PERSEC;
          reset_variables();
          gecko_cmd_gatt_set_max_mtu(247);
          gecko_cmd_le_gap_start_advertising(HANDLE_V3, le_gap_general_discoverable, le_gap_undirected_connectable);
-        
-#if 1  //include this code for Eddystone and iBeacon support 
+#if 1  //include this code for Eddystone and iBeacon support
 
         // eddystone additions
         //gecko_cmd_system_set_tx_power(0);
@@ -221,14 +316,42 @@ U8 sectic = TIC_TIMER_PERSEC;
         /* Start non-connectable advertising ibeacons */
         bcnSetupAdvBeaconing();
 #endif
-    	break;
+#if 1
+#if DEBUG_LEVEL
+	    bootMessage(&(evt->data.evt_system_boot));
+#endif
+	    /* 1 second soft timer, used for performance statistics during OTA file upload */
+	    gecko_cmd_hardware_set_soft_timer(32768, OS_1S_TIMER_HANDLE, 0);
 
+	    /* set advertising interval to 100 ms */
+	    //gecko_cmd_le_gap_set_advertise_timing(0, 160, 160, 0, 0);
+
+	    /* Start general advertising and enable connections. */
+	    //printLog("boot event - starting advertising\r\n");
+	    //gecko_cmd_le_gap_start_advertising(0, le_gap_general_discoverable, le_gap_connectable_scannable);
+
+	    /* bootloader init must be called before calling other bootloader_xxx API calls */
+	    bootloader_init();
+
+	    /* read slot information from bootloader */
+	    if(get_slot_info() == BOOTLOADER_OK)
+	    {
+	       	/* the download area is erased here (if needed), prior to any connections are opened */
+	    	erase_slot_if_needed();
+	    }
+	    else
+	    {
+	    	printLog("Check that you have installed correct type of Gecko bootloader!\r\n");
+	    }
+#endif
+    	break;
 
     	/* Connection opened event */
       case gecko_evt_le_connection_opened_id:
 
          _conn_handle = evt->data.evt_le_connection_opened.connection;
-         printLog("Connected\r\n");
+       //printLog("Connected\r\n");
+         printf("connection opened\r\n");
          _main_state = STATE_CONNECTED;
          v3status.spp = STATE_CONNECTED;
 
@@ -252,16 +375,38 @@ U8 sectic = TIC_TIMER_PERSEC;
     	break;
 
       case gecko_evt_le_connection_closed_id:
-         printLog("DISCONNECTED!\r\n");
+    	  printLog("connection closed, reason: 0x%2.2x\r\n", evt->data.evt_le_connection_closed.reason);
+    	  if (ota_image_finished) {
+    		  printLog("Installing new image\r\n");
+#if DEBUG_LEVEL
+    		  flushLog();
+#endif
+    		  bootloader_setImageToBootload(0);
+    		  bootloader_rebootAndInstall();
+    	  } else {
 
-         /* Show statistics (RX/TX counters) after disconnect: */
-         printStats(&_sCounters);
+	         /* Show statistics (RX/TX counters) after disconnect: */
+   	         printStats(&_sCounters);
 
-         reset_variables();
-         SLEEP_SleepBlockEnd(sleepEM2); // Enable sleeping
+   	         reset_variables();
+   	         SLEEP_SleepBlockEnd(sleepEM2); // Enable sleeping                 //Commented by Jason
+
+             /* Restart advertising after client has disconnected */
+    		 gecko_cmd_le_gap_start_advertising(0, le_gap_general_discoverable, le_gap_connectable_scannable);
+    	  }
+
 
          /* Restart advertising */
-         gecko_cmd_le_gap_start_advertising(0, le_gap_general_discoverable, le_gap_undirected_connectable);
+         //gecko_cmd_le_gap_start_advertising(0, le_gap_general_discoverable, le_gap_undirected_connectable);
+
+        /* Check if need to boot to OTA DFU mode */
+        //if (boot_to_dfu) {
+          /* Enter to OTA DFU mode */
+        //  gecko_cmd_system_reset(2);
+        //} else {
+          /* Restart advertising after client has disconnected */
+        //  gecko_cmd_le_gap_start_advertising(0, le_gap_general_discoverable, le_gap_connectable_scannable);
+        //}
     	break;
 
       case gecko_evt_gatt_server_characteristic_status_id:
@@ -283,7 +428,7 @@ U8 sectic = TIC_TIMER_PERSEC;
                   printLog("SPP Mode OFF\r\n");
                   _main_state = STATE_CONNECTED;
                   v3status.spp = STATE_CONNECTED;
-                  SLEEP_SleepBlockEnd(sleepEM2); // Enable sleeping
+                  SLEEP_SleepBlockEnd(sleepEM2); // Enable sleeping                         //Commented by Jason
                }
 
     		}
@@ -296,12 +441,12 @@ U8 sectic = TIC_TIMER_PERSEC;
     	 for(i=0;i<evt->data.evt_gatt_server_attribute_value.value.len;i++) {
     		 //USART_Tx(RETARGET_UART, evt->data.evt_gatt_server_attribute_value.value.data[i]);
           v3CommBuf.rx[v3CommBuf.rxhead++]  = evt->data.evt_gatt_server_attribute_value.value.data[i];
-          if(v3CommBuf.rxhead == v3CommBuf.rxtail) 
+          if(v3CommBuf.rxhead == v3CommBuf.rxtail)
           {
              // make error condition for receive buffer overflow
              break;
           }
-    	 
+
          }
 
     	 _sCounters.num_pack_received++;
@@ -317,7 +462,13 @@ U8 sectic = TIC_TIMER_PERSEC;
 			 //case TIC_TIMER_HANDLE:  // currently once per second
 				//v3_state(); // sequence main V3 state machine
 			 //break;
-
+		     case OS_1S_TIMER_HANDLE:
+		    	 if(ota_in_progress)
+		    	 {
+		    		 ota_time_elapsed++;
+		    		 print_progress();
+		    	 }
+		    	 break;
 			 case OS_TIMER_HANDLE:
 			 //SLEEP_SleepBlockBegin(sleepEM2); // Disable sleeping
 
@@ -356,9 +507,45 @@ U8 sectic = TIC_TIMER_PERSEC;
 		  }
       }
 	  break;
-
+      case gecko_evt_gatt_server_user_write_request_id:
+      {
+    	  uint32_t connection = evt->data.evt_gatt_server_user_write_request.connection;
+    	  uint32_t characteristic = evt->data.evt_gatt_server_user_write_request.characteristic;
+    	  if(characteristic == gattdb_ota_control)
+    	  {
+    		  switch(evt->data.evt_gatt_server_user_write_request.value.data[0])
+    		  {
+    		  case 0://Erase and use slot 0
+    			  // NOTE: download are is NOT erased here, because the long blocking delay would result in supervision timeout
+    			  //bootloader_eraseStorageSlot(0);
+    			  ota_image_position=0;
+    			  ota_in_progress=1;
+    			  break;
+    		  case 3://END OTA process
+    			  //wait for connection close and then reboot
+    			  ota_in_progress=0;
+    			  ota_image_finished=1;
+    			  printLog("upload finished. received file size %u bytes\r\n", ota_image_position);
+    			  uart_flush();
+    			  break;
+    		  default:
+    			  break;
+    		  }
+    	  } else if(characteristic == gattdb_ota_data)
+    	  {
+    		  if(ota_in_progress)
+    		  {
+    			  bootloader_writeStorage(0,//use slot 0
+    					  ota_image_position,
+						  evt->data.evt_gatt_server_user_write_request.value.data,
+						  evt->data.evt_gatt_server_user_write_request.value.len);
+    			  ota_image_position+=evt->data.evt_gatt_server_user_write_request.value.len;
+    		  }
+    	  }
+    	  gecko_cmd_gatt_server_send_user_write_response(connection,characteristic,0);
+      }
+   	  break;
     //break;
-
       default:
       break;
    }//switch (BGLIB_MSG_ID(evt->header))
@@ -440,3 +627,19 @@ void bcnSetupAdvBeaconing(void)
 
 }
 
+static void bootMessage(struct gecko_msg_system_boot_evt_t *bootevt)
+{
+	bd_addr local_addr;
+	int i;
+
+	printLog("stack version: %u.%u.%u\r\n", bootevt->major, bootevt->minor, bootevt->patch);
+	local_addr = gecko_cmd_system_get_bt_address()->address;
+
+	printLog("local BT device address: ");
+	for(i=0;i<5;i++)
+	{
+		printLog("%2.2x:", local_addr.addr[5-i]);
+	}
+	printLog("%2.2x\r\n", local_addr.addr[0]);
+
+}

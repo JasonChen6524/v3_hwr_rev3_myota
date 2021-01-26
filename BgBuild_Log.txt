@@ -1,4 +1,4 @@
-// Copyright 2020 Silicon Laboratories, Inc.
+// Copyright 2021 Silicon Laboratories, Inc.
 //
 //
 

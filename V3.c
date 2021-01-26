@@ -638,8 +638,8 @@ v3combo.combonum = 0;
    v3status.bio_status = calibrationTimer_read();
 #endif
 
-   if (v3combo.awakesec) v3_ack_handle((union v3_message_UNION*)&v3status);  // Send status and store message, unsolicited 
-      else v3_ack_nohandle((union v3_message_UNION*)&v3status);  // Send status message, unsolicited
+   if (v3combo.awakesec) v3_ack_handle((union v3_message_UNION*)&v3status);  // Send status and store message, unsolicited
+      else v3_ack_nohandle((union v3_message_UNION*)&v3status);              // Send status message, unsolicited
 
 
 //LED STATE MACHINE
