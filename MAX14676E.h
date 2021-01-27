@@ -67,7 +67,7 @@
 #define MAX_CRATE	0x16
 
 extern bool max14676_init(void);
-
+#include "I2C.h"
 extern void max14676_LED(struct rgbcolor ledset); //255 max rgb values
 
 //void max14676_process(void);

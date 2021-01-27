@@ -106,17 +106,17 @@ static int32_t get_slot_info()
 	int32_t err;
 
 	bootloader_getInfo(&bldInfo);
-	printLog("Gecko bootloader version: %u.%u\r\n", (bldInfo.version & 0xFF000000) >> 24, (bldInfo.version & 0x00FF0000) >> 16);
+	printLog("Gecko bootloader version: %u.%u\r\n", (uint16_t)((bldInfo.version & 0xFF000000) >> 24), (uint16_t)((bldInfo.version & 0x00FF0000) >> 16));
 
 	err = bootloader_getStorageSlotInfo(0, &slotInfo);
 
 	if(err == BOOTLOADER_OK)
 	{
-		printLog("Slot 0 starts @ 0x%8.8x, size %u bytes\r\n", slotInfo.address, slotInfo.length);
+		printLog("Slot 0 starts @ 0x%8.8x, size %u bytes\r\n", (uint16_t)slotInfo.address, (uint16_t)slotInfo.length);
 	}
 	else
 	{
-		printLog("Unable to get storage slot info, error %x\r\n", err);
+		printLog("Unable to get storage slot info, error %x\r\n", (uint16_t)err);
 	}
 
 	return(err);
@@ -156,7 +156,7 @@ static void erase_slot_if_needed()
 
 	if(err != BOOTLOADER_OK)
 	{
-		printLog("\r\nerror reading flash! %x\r\n", err);
+		printLog("\r\nerror reading flash! %x\r\n", (uint16_t)err);
 	}
 	else if(dirty)
 	{
@@ -177,7 +177,7 @@ static void print_progress()
 	// estimate transfer speed in kbps
 	int kbps = ota_image_position*8/(1024*ota_time_elapsed);
 
-	printLog("pos: %u, time: %u, kbps: %u\r\n", ota_image_position, ota_time_elapsed, kbps);
+	printLog("pos: %u, time: %u, kbps: %u\r\n", (uint16_t)ota_image_position, (uint16_t)ota_time_elapsed, kbps);
 }
 
 static uint8 _conn_handle = 0xFF;
@@ -525,7 +525,7 @@ U8 sectic = TIC_TIMER_PERSEC;
     			  //wait for connection close and then reboot
     			  ota_in_progress=0;
     			  ota_image_finished=1;
-    			  printLog("upload finished. received file size %u bytes\r\n", ota_image_position);
+    			  printLog("upload finished. received file size %u bytes\r\n", (uint16_t)ota_image_position);
     			  uart_flush();
     			  break;
     		  default:
