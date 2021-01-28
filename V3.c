@@ -637,9 +637,11 @@ v3combo.combonum = 0;
    v3status.bio_state  = appState;
    v3status.bio_status = calibrationTimer_read();
 #endif
-
-   if (v3combo.awakesec) v3_ack_handle((union v3_message_UNION*)&v3status);  // Send status and store message, unsolicited
+   if(ota_in_progress != 1)                                                                               // Added by Jason Chen for avoiding disturbing OTA process
+   {
+      if (v3combo.awakesec) v3_ack_handle((union v3_message_UNION*)&v3status);  // Send status and store message, unsolicited
       else v3_ack_nohandle((union v3_message_UNION*)&v3status);              // Send status message, unsolicited
+   }
 
 
 //LED STATE MACHINE

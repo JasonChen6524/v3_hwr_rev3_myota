@@ -19,6 +19,8 @@
 
 #include "gecko_configuration.h"
 
+extern uint8_t ota_in_progress;                                                             // Added by Jason for OTA process
+
 /* DEBUG_LEVEL is used to enable/disable debug prints. Set DEBUG_LEVEL to 1 to enable debug prints */
 #define DEBUG_LEVEL   1
 
