@@ -106,7 +106,8 @@ typedef enum
    V3_CMD_SET,	// set variables
    V3_CMD_MOD,	//Modify Combo, pause resume or intensity change
    V3_CMD_SLEEP,
-   V3_CMD_OTADAT
+   V3_OTA_DFU
+//   V3_CMD_OTADAT
 } V3_CMD_TypeDef;
 
 //connections emueration
@@ -327,7 +328,7 @@ struct v3_sleep	// night time treatment
 
 extern struct v3_sleep v3sleep;
 
-
+#if 0
 struct v3_otadat
 {
    U16 magic;
@@ -338,6 +339,7 @@ struct v3_otadat
    U32 address; // V3 flash memory address
    U8 data[V3_MAX_SIZE-V3_HDR_SIZE-sizeof(U32)];	
 };
+#endif
 
 union v3_message_UNION
 {
@@ -358,7 +360,7 @@ union v3_message_UNION
    struct v3_sleep   v3sleep;
    //struct v3_message v3ack;
    struct v3_message v3nack;
-   struct v3_otadat  v3otadat;
+//   struct v3_otadat  v3otadat;
 } ;
 
 extern union v3_message_UNION v3msgU;

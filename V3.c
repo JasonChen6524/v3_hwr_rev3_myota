@@ -21,6 +21,7 @@
 //#include "core_cm33.h"
 #include "em_usart.h"
 #include "SHComm.h"
+#include "native_gecko.h"
 
 
 void v3_proc_message(union v3_message_UNION * pv3msgU);
@@ -206,7 +207,7 @@ U8 size;
 void v3_proc_message(union v3_message_UNION * pv3msgU)
 {
 struct rgbcolor ledset; 
-static U16 otaflashaddr;
+//static U16 otaflashaddr;
 
    switch (pv3msgU->v3msg.cmd)   // some messages give ack, some a response
                                  // consider an array of functions if the switch gets too big
@@ -300,6 +301,17 @@ static U16 otaflashaddr;
       flash_write(); // update flash on processor IC
       break;
 
+      case V3_OTA_DFU:
+      // add code to turn off codecs, supplies
+      // add code to tell PMIC to set LEDs at a static color
+      //       change PMIC LED mode to modulated via I2C I/O expander
+      //       tell I/O expander to enter LED DFU modulation mode
+      //       Need to code new I/O expander functions
+      gecko_cmd_system_reset(2);
+
+      break;
+
+#if 0
       case V3_CMD_OTADAT:
       if (v3status.state != V3_STATE_OTA)
       {
@@ -317,6 +329,7 @@ static U16 otaflashaddr;
       // code stub to jump to reset vector of boot loader
       //if (v3msgU.v3otadat.address) = 0xFFFFFFFF - jump to bootloader entry tbd
       break;
+#endif
 
      default:
      break;
@@ -398,6 +411,9 @@ static U8 led_sm = LED_SM_START, wait = 0;
 
    v3status.time++;
    Seconds++;
+
+   // test code
+//   if (Seconds > 20 ) gecko_cmd_system_reset(2);
 
    v3status.conn = ExpGetPins(); // get pins from I/O expander
    v3status.conn &= ~0x13; // !!! TEMPORARY TEST CODE for V3, REV 2
@@ -576,8 +592,11 @@ v3combo.combonum = 0;
       break;
 
       case V3_SM_SLEEP:
-      if (!v3sleep.sleepsec) NVIC_SystemReset();
-         //SCB->AIRCR = SCB_AIRCR_SYSRESETREQ_Pos; // reset system ?
+
+      if (!v3sleep.sleepsec) gecko_cmd_system_reset(0);
+
+      //if (!v3sleep.sleepsec) NVIC_SystemReset();
+      //SCB->AIRCR = SCB_AIRCR_SYSRESETREQ_Pos; // reset system ?
       break;
       
 
@@ -637,11 +656,9 @@ v3combo.combonum = 0;
    v3status.bio_state  = appState;
    v3status.bio_status = calibrationTimer_read();
 #endif
-   if(ota_in_progress != 1)                                                                               // Added by Jason Chen for avoiding disturbing OTA process
-   {
-      if (v3combo.awakesec) v3_ack_handle((union v3_message_UNION*)&v3status);  // Send status and store message, unsolicited
-      else v3_ack_nohandle((union v3_message_UNION*)&v3status);              // Send status message, unsolicited
-   }
+
+   if (v3combo.awakesec) v3_ack_handle((union v3_message_UNION*)&v3status);  // Send status and store message, unsolicited 
+      else v3_ack_nohandle((union v3_message_UNION*)&v3status);  // Send status message, unsolicited
 
 
 //LED STATE MACHINE

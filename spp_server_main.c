@@ -106,6 +106,9 @@ uint8_t ota_in_progress = 0;
 static uint8 ota_image_finished = 0;
 static uint16 ota_time_elapsed = 0;
 
+/* Flag for indicating DFU Reset(apploader) must be performed */
+static uint8_t boot_to_dfu = 0;
+
 static int32_t get_slot_info()
 {
 	int32_t err = 0;
@@ -421,15 +424,22 @@ U8 sectic = TIC_TIMER_PERSEC;
     	  } else
 #endif
     	  {
+    		  /* Show statistics (RX/TX counters) after disconnect: */
+    		  printStats(&_sCounters);
 
-	         /* Show statistics (RX/TX counters) after disconnect: */
-   	         printStats(&_sCounters);
+    		  reset_variables();
 
-   	         reset_variables();
-   	         SLEEP_SleepBlockEnd(sleepEM2); // Enable sleeping
+    		  /* Check if need to boot to OTA DFU mode */
+    		  if (boot_to_dfu) {
+				  /* Enter to OTA DFU mode */
+				  gecko_cmd_system_reset(2);
+    		  }
+    		  else {
+					  SLEEP_SleepBlockEnd(sleepEM2); // Enable sleeping
 
-             /* Restart advertising after client has disconnected */
-    		 gecko_cmd_le_gap_start_advertising(0, le_gap_general_discoverable, le_gap_connectable_scannable);
+					  /* Restart advertising after client has disconnected */
+					  gecko_cmd_le_gap_start_advertising(0, le_gap_general_discoverable, le_gap_connectable_scannable);
+    		  }
     	  }
     	break;
 
@@ -555,6 +565,7 @@ U8 sectic = TIC_TIMER_PERSEC;
     			  bootloader_eraseStorageSlot(UsedslotId);
     			  ota_image_position=0;
     			  ota_in_progress=1;
+    			  gecko_cmd_gatt_server_send_user_write_response(connection,characteristic,0);
     			  break;
     		  case 3://END OTA process
     			  //wait for connection close and then reboot
@@ -562,7 +573,20 @@ U8 sectic = TIC_TIMER_PERSEC;
     			  ota_image_finished=1;
     			  printLog("upload finished. received file size %u bytes\r\n", (unsigned int)ota_image_position);
     			  uart_flush();
+    			  gecko_cmd_gatt_server_send_user_write_response(connection,characteristic,0);
     			  break;
+    		  case 9://Enter OTA DFU mode (apploader)
+				boot_to_dfu = 1;
+				/* Send response to Write Request */
+				gecko_cmd_gatt_server_send_user_write_response(
+				  evt->data.evt_gatt_server_user_write_request.connection,
+				  gattdb_ota_control,
+				  bg_err_success);
+
+				/* Close connection to enter to DFU OTA mode */
+				gecko_cmd_le_connection_close(evt->data.evt_gatt_server_user_write_request.connection);
+				break;
+
     		  default:
     			  break;
     		  }
@@ -575,9 +599,10 @@ U8 sectic = TIC_TIMER_PERSEC;
 						                  evt->data.evt_gatt_server_user_write_request.value.data,
 						                  evt->data.evt_gatt_server_user_write_request.value.len);
     			  ota_image_position+=evt->data.evt_gatt_server_user_write_request.value.len;
+    			  gecko_cmd_gatt_server_send_user_write_response(connection,characteristic,0);
     		  }
     	  }
-    	  gecko_cmd_gatt_server_send_user_write_response(connection,characteristic,0);
+    	  //gecko_cmd_gatt_server_send_user_write_response(connection,characteristic,0);
       }
    	  break;
 #endif
