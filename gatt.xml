@@ -57,6 +57,13 @@
       <value length="1" type="user" variable_length="false"/>
       <properties write="true" write_requirement="optional"/>
     </characteristic>
+    
+    <!--Silicon Labs OTA Data-->
+    <characteristic id="ota_data" name="Silicon Labs OTA Data" sourceId="com.silabs.characteristic.ota_data" uuid="1181ef0b-7d99-4be8-a409-657f951d5273">
+      <informativeText>Custom characteristic</informativeText>
+      <value length="255" type="user" variable_length="true"/>
+      <properties write="true" write_no_response="true" write_no_response_requirement="mandatory" write_requirement="optional"/>
+    </characteristic>
   </service>
   
   <!--SPP service-->
