@@ -19,10 +19,8 @@
 
 #include "gecko_configuration.h"
 
-extern uint8_t ota_in_progress;                                                             // Added by Jason for OTA process
-
 /* DEBUG_LEVEL is used to enable/disable debug prints. Set DEBUG_LEVEL to 1 to enable debug prints */
-#define DEBUG_LEVEL   0
+#define DEBUG_LEVEL 0
 
 /* Set this value to 1 if you want to disable deep sleep completely */
 #define DISABLE_SLEEP 0
@@ -34,8 +32,7 @@ extern uint8_t ota_in_progress;                                                 
 
 #if DEBUG_LEVEL
 #define initLog()     RETARGET_SwoInit();
-#define flushLog()
-//RETARGET_SerialFlush()
+//#define flushLog()    RETARGET_SerialFlush()
 #define printLog(...) printf(__VA_ARGS__)
 #else
 #define initLog()
