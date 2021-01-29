@@ -55,14 +55,14 @@
     <characteristic id="ota_control" name="Silicon Labs OTA Control" sourceId="com.silabs.characteristic.ota_control" uuid="F7BF3564-FB6D-4E53-88A4-5E37E0326063">
       <informativeText>Abstract:  Silicon Labs OTA Control.  </informativeText>
       <value length="1" type="user" variable_length="false"/>
-      <properties indicate="false" indicate_requirement="excluded" notify="false" notify_requirement="excluded" read="false" read_requirement="excluded" reliable_write="false" reliable_write_requirement="excluded" write="true" write_no_response="false" write_no_response_requirement="excluded" write_requirement="mandatory"/>
+      <properties write="true" write_requirement="optional"/>
     </characteristic>
     
     <!--Silicon Labs OTA Data-->
     <characteristic id="ota_data" name="Silicon Labs OTA Data" sourceId="com.silabs.characteristic.ota_data" uuid="984227F3-34FC-4045-A5D0-2C581F81A153">
       <informativeText>Abstract:  Silicon Labs OTA Data.  </informativeText>
       <value length="255" type="user" variable_length="true"/>
-      <properties indicate="false" indicate_requirement="excluded" notify="false" notify_requirement="excluded" read="false" read_requirement="excluded" reliable_write="false" reliable_write_requirement="excluded" write="true" write_no_response="true" write_no_response_requirement="mandatory" write_requirement="optional"/>
+      <properties write="true" write_no_response="true" write_no_response_requirement="mandatory" write_requirement="optional"/>
     </characteristic>
   </service>
   
