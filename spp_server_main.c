@@ -474,6 +474,8 @@ U8 sectic = TIC_TIMER_PERSEC;
     			  break;
     		  case 9://Enter OTA DFU mode (apploader)
 				boot_to_dfu = 1;
+				ota_in_progress=0;
+				ota_image_finished=0;
 				/* Send response to Write Request */
 				gecko_cmd_gatt_server_send_user_write_response(
 				  evt->data.evt_gatt_server_user_write_request.connection,
