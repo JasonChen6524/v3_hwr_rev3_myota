@@ -88,8 +88,8 @@ static gecko_configuration_t config = {
 #endif
   .gattdb = &bg_gattdb_data,                           /* Pointer to GATT database */
   .ota.flags = 0,                                      /* Check flag options from UG136 */
-  .ota.device_name_len = 3,                            /* Length of the device name in OTA DFU mode */
-  .ota.device_name_ptr = "OTA",                        /* Device name in OTA DFU mode */
+  .ota.device_name_len = 6,                            /* Length of the device name in OTA DFU mode */
+  .ota.device_name_ptr = "V3_OTA",                     /* Device name in OTA DFU mode */
   .pa.config_enable = 1,                               /* Set this to be a valid PA config */
 #if defined(FEATURE_PA_INPUT_FROM_VBAT)
   .pa.input = GECKO_RADIO_PA_INPUT_VBAT,               /* Configure PA input to VBAT */

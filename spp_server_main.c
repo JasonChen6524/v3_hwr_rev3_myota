@@ -452,17 +452,33 @@ U8 sectic = TIC_TIMER_PERSEC;
     	  {
     		  switch(evt->data.evt_gatt_server_user_write_request.value.data[0])
     		  {
-    		  case 1://Erase and use slot 0
-    		  case 2://Erase and use slot 1 if 2 slots exist!
+    		  /////////////////////////// apploader DFU OTA /////////////////////////////////////
+    		  case 1://Enter OTA DFU mode (apploader)
+				boot_to_dfu = 1;
+				ota_in_progress=0;
+				ota_image_finished=0;
+				/* Send response to Write Request */
+				gecko_cmd_gatt_server_send_user_write_response(connection,                           //evt->data.evt_gatt_server_user_write_request.connection,
+						                                       characteristic,                       //gattdb_ota_control,
+															   bg_err_success);
+
+				/* Close connection to enter to DFU OTA mode */
+				gecko_cmd_le_connection_close(evt->data.evt_gatt_server_user_write_request.connection);
+				break;
+			  /////////////////////////// apploader DFU OTA /////////////////////////////////////
+
+			  /////////////////////////// user application DFU OTA /////////////////////////////////////
+    		  case 0://Erase and use slot 0
+    		  //case 2://Erase and use slot 1 if 2 slots exist!
     			  // NOTE: download are is NOT erased here, because the long blocking delay would result in supervision timeout
-    			  if(storageInfo.numStorageSlots > 1)
-    				  UsedslotId = evt->data.evt_gatt_server_user_write_request.value.data[0] - 1;
-    			  else
+    			  //if(storageInfo.numStorageSlots > 1)
+    			  //  UsedslotId = evt->data.evt_gatt_server_user_write_request.value.data[0];
+    			  //else
     				  UsedslotId = 0;
     			  bootloader_eraseStorageSlot(UsedslotId);
     			  ota_image_position=0;
     			  ota_in_progress=1;
-    			  gecko_cmd_gatt_server_send_user_write_response(connection,characteristic,0);
+    			  gecko_cmd_gatt_server_send_user_write_response(connection, characteristic, bg_err_success);
     			  break;
     		  case 3://END OTA process
     			  //wait for connection close and then reboot
@@ -470,22 +486,12 @@ U8 sectic = TIC_TIMER_PERSEC;
     			  ota_image_finished=1;
     			  printLog("upload finished. received file size %u bytes\r\n", (unsigned int)ota_image_position);
     			  uart_flush();
-    			  gecko_cmd_gatt_server_send_user_write_response(connection,characteristic,0);
+    			  gecko_cmd_gatt_server_send_user_write_response(connection, characteristic, bg_err_success);
     			  break;
-    		  case 0://Enter OTA DFU mode (apploader)
-				boot_to_dfu = 1;
-				ota_in_progress=0;
-				ota_image_finished=0;
-				/* Send response to Write Request */
-				gecko_cmd_gatt_server_send_user_write_response(evt->data.evt_gatt_server_user_write_request.connection,
-						                                       gattdb_ota_control,
-															   bg_err_success);
-
-				/* Close connection to enter to DFU OTA mode */
-				gecko_cmd_le_connection_close(evt->data.evt_gatt_server_user_write_request.connection);
-				break;
+    		  /////////////////////////// user application DFU OTA /////////////////////////////////////
 
     		  default:
+    			  gecko_cmd_gatt_server_send_user_write_response(connection, characteristic, bg_err_success);
     			  break;
     		  }
     	  } else if(characteristic == gattdb_ota_data)
@@ -497,8 +503,8 @@ U8 sectic = TIC_TIMER_PERSEC;
 						                  evt->data.evt_gatt_server_user_write_request.value.data,
 						                  evt->data.evt_gatt_server_user_write_request.value.len);
     			  ota_image_position+=evt->data.evt_gatt_server_user_write_request.value.len;
-    			  gecko_cmd_gatt_server_send_user_write_response(connection,characteristic,0);
     		  }
+    		  gecko_cmd_gatt_server_send_user_write_response(connection, characteristic, bg_err_success);
     	  }
     	  //gecko_cmd_gatt_server_send_user_write_response(connection,characteristic,0);
       }
